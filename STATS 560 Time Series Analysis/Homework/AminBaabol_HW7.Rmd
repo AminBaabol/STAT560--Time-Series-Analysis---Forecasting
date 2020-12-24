@@ -1,0 +1,300 @@
+---
+title: "Homework7"
+author: "Amin Baabol"
+date: "11/20/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Problem 5.12:
+
+
+Instructions:
+
+a) "Fit an ARIMA model"  -- specify the model and give the estimators of 
+the coefficients. For example, if you use a AR(2) model to fit the data, then you 
+need to give the model like y_t = 30 + 0.5 y_{t-1} + 0.3 y_{t-2} + \epsilon_t. 
+Your answer should include the ACF and PACF of the data, then determine your 
+"best" model. You can use the auto.arima() function to double check. 
+
+"Investigate the model adequacy" --  show the 4-in-1 residual plots, and ACF and 
+PACF plots for the residuals. Then interpret your outputs/results.
+
+"Explain how this model would be used for forecasting" -- show the forecast model. 
+To specify the forecast model, you need to show how to get estimators of the
+$\Psi_i$'s. Show at least the first 4 $\Psi_i$'s. Similar to what we did for 
+Example 5.3, 5.4, and 5.5 on page 381-382 in the class. The general forecast model 
+is shown as the equation of (5.88) on page 379.
+
+#Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+#Yt-mu = δ + φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+
+#Yt-mu = δ + φ1(yt-1) + φ2(yt-2) + 𝜀t 
+#Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t
+#yt=3396
+#intercept = mean <- mu = 1545.4458
+#φ1 = 1.1474, φ2 = -0.5997, yt-1 = 2657, yt-2 = 1590, 𝜀t = 601.838001
+#yt <- ((1.1474*(2657-1545.4458)) - (0.5997*(1590-1545.4458)) + 601.838001)
+#3396-1545.4458
+
+### Part 5.2a
+
+From the standard time series plot we can see cyclical pulse that doesn't have 
+a fixed season.when you see this kind of undefined pattern, it is best to build 
+an ARIMA model.The plot shows that when the mean reaches the peak it drops fairly
+fast.There is not much middle ground.It goes from one extreme to the other which 
+is an indicator of a possible autoregression.
+
+The Augmented Dickey-Fuller Test indicates a statistically significant p-value 
+of less then 0.01. Hence, we reject the null hypothesis that the time series is 
+non-stationary in favor of the alternative hypothesis that the time series data 
+is now stationary.Moreover,the ACF and PACF plots of the differenced time series 
+data shows no significant initial lags,however, perhaps there seems to be a potential 
+significant lag that crosses the threshold at around lag 12.Hence, It is wise to 
+start with MA(0) then upgrade it to MA(1) or MA(2) to see if the MA component 
+improves.The PACF plot also shows there could potentially be AR(0),AR(1),AR(2) 
+or even AR(3).If the first couple of lags are significant we can be sure the model 
+needs readjustment but the ACF plot shows latter lag 12 and PACT also shows latter 
+lags 12,13 are significant which is a borderline situation because it could be 
+by chance.So we are going to individual test the moving average component and the 
+autoregressive components until we find the optimal AIC. Then we check the residuals 
+using checkresiduals() from library(forecast) because there should be no more 
+autoregression in them. The residuals should be random and normally distributed.
+
+
+After individually tweaking the arima model's moving average component and the 
+autoregressive component our manual parameter estimation indicates that we have 
+two candidates for the q component. MA(0) yields an AIC of 302.2083 and MA(1) 
+gives AIC of 302.4668. Furthermore, AR(0) or AR(1) for the p component respectively
+give us AIC of 302.2083 and 302.6586.Since we performed a first order differencing 
+to stabilize the mean our d parameter is going to be 1. Hence, our best models 
+might be ARIMA(0,1,0) and ARIMA(1,1,1). Further comparison reveals that ARIMA model 
+of the order (1,1,1) gives us the best criterion with the lowest AIC of 296.194.
+
+After running model diagnostics to check model adequacy we see that the residuals
+are normally distributed with a tiny hint of left skewness as shown in the histogram.
+The qq-norm plot further supports that the normal distribution assumption isn't 
+violated.The fitted vs. residuals indicate fairly random scatter centered around
+0 with marginal difference of +/- 2. The variance seems to be slightly increasing 
+as the fitted values increase.Additionally, the residual vs. observation order plot 
+show that residuals exhibit normal random noise around 0 which suggests that there
+is no serial correlation. The ACF of the residuals show a potential significance
+at around lag 13 but after running a Ljung-Box's statistics we get a large p-value 
+of 0.1654.This means we don't have enough statistical evidence to reject the null 
+hypothesis which does not confirm the residual dependence or the residual autocorrelation
+significance of lag 13. In essence, the apparent significant autocorrelation lag 
+seen in the residuals ACF plot is due to some sort of random error and our 
+ARIMA(1,1,1) is appropriate.
+
+
+```{r}
+#Raw data
+Viscosity.Reading <- read.csv("~/Desktop/GradSchool/STATS 560 Time Series Analysis/Lecture/ViscosityData.csv",
+                              header = TRUE)
+
+#Convert the dataframe into time series
+ViscosityReading.TS <- ts(Viscosity.Reading)
+
+#Checking for NAs
+summary(ViscosityReading.TS)
+
+#time series plot
+library(lattice)
+xyplot.ts(ViscosityReading.TS,
+          main = 'Figure 1: Time Series Plot of TABLE B.3 Data',
+          xlab = 'Time Period',
+          ylab = 'Viscosity Reading')
+
+
+#Checking for stationarity
+library(tseries)
+library(forecast)
+library(zoo)
+
+
+#Stationarity check:ACF and PACF plots
+tsdisplay(ViscosityReading.TS)
+
+#Stationarity:Dicke-Fuller test 
+adf.test(ViscosityReading.TS)
+
+#The sample ACF plot suggests MA(2), MA(3) or even MA(4) models.
+#similarly, it be interpreted as an exponential decay pattern suggesting
+#AR(p) models. Then we check sample PACF plot and conclude it cuts 
+#after 1 suggesting AR(1) model.
+
+
+AR.first <- Arima(ViscosityReading.TS, order = c(1,0,0))
+
+AR.first
+
+#Series: ViscosityReading.TS 
+#ARIMA(1,0,0) with non-zero mean 
+
+#Coefficients:
+         #ar1     mean
+      #0.7859  84.9827
+#s.e.  0.0605   0.4649
+
+#sigma^2 estimated as 1.082:  log likelihood=-145.32
+#AIC=296.64   AICc=296.89   BIC=304.45
+
+#Show in New WindowClear OutputExpand/Collapse Output
+
+#Call:
+#arima(x = ViscosityReading.TS, order = c(1, 0, 0))
+
+#Coefficients:
+         #ar1  intercept
+      #0.7859    84.9827
+#s.e.  0.0605     0.4649
+
+#sigma^2 estimated as 1.061:  log likelihood = -145.32,  aic = 296.64
+
+#Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+#Yt-mu = δ + φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+
+#Yt-mu = δ + φ1(yt-1) + φ2(yt-2) + 𝜀t 
+#Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t
+
+#δ = 84.9827*(1-)
+
+#First order differencing to obtain ARIMA parameter d
+ViscosityReading.Diff <- diff(ViscosityReading.TS, differences = 1)
+
+
+#checking stationarity of the difference time series
+
+#Stationarity check:ACF and PACF plots
+tsdisplay(ViscosityReading.Diff)
+
+#Stationarity:Dickey-Fuller test 
+adf.test(ViscosityReading.Diff)
+
+
+#Comparing AIC performance 
+MA.0 <- Arima(ViscosityReading.Diff, order = c(0,0,0))
+MA.1 <- Arima(ViscosityReading.Diff, order = c(0,0,1))
+MA.2 <- Arima(ViscosityReading.Diff, order = c(0,0,2))
+MA.3 <- Arima(ViscosityReading.Diff, order = c(0,0,3))
+
+AR.0 <- Arima(ViscosityReading.Diff, order = c(0,0,0))
+AR.1 <- Arima(ViscosityReading.Diff, order = c(1,0,0))
+AR.2 <- Arima(ViscosityReading.Diff, order = c(2,0,0))
+AR.3 <- Arima(ViscosityReading.Diff, order = c(3,0,0))
+
+ARIMA.010 <- Arima(ViscosityReading.TS, order = c(0,1,0))
+ARIMA.111 <- Arima(ViscosityReading.TS, order = c(1,1,1))
+
+
+
+paste("MA(0) AIC")
+AIC(MA.0)
+paste("MA(1) AIC")
+AIC(MA.1)
+paste("MA(2) AIC")
+AIC(MA.2)
+paste("MA(3) AIC")
+AIC(MA.3)
+
+
+paste("AR(0) AIC")
+AIC(AR.0)
+paste("AR(1) AIC")
+AIC(AR.1)
+paste("AR(2) AIC")
+AIC(AR.2)
+paste("AR(3) AIC")
+AIC(AR.3)
+
+
+paste("ARIMA(0,1,0) AIC")
+AIC(ARIMA.010)
+paste("ARIMA(1,1,1) AIC")
+AIC(ARIMA.111)
+
+
+#Checking the residuals of ARIMA(1,1,1) model
+checkresiduals(ARIMA.111)
+
+
+#Another method to run model diagnostics(from the book)
+ARIMA111.Fitted<-as.vector(fitted(ARIMA.111))
+ARIMA111.Residuals <-as.vector(residuals(ARIMA.111))
+
+
+Box.test(ARIMA111.Residuals,
+         lag = 20,
+         fitdf = 18,
+         type = "Ljung")
+
+#4-in-1 plot of the residuals
+par(mfrow = c(2,2),oma = c(0,0,0,0))
+qqnorm(ARIMA111.Residuals,
+       datax = TRUE,
+       pch = 16,
+       xlab = 'Residual',
+       main = '')
+qqline(ARIMA111.Residuals,
+       datax = TRUE)
+plot(ARIMA111.Fitted,
+     ARIMA111.Residuals,
+     pch = 16,
+     xlab = 'Fitted Value',
+     ylab = 'Residual')
+abline(h = 0)
+hist(ARIMA111.Residuals,
+     col = "gray",
+     xlab = 'Residual',
+     main = '')
+plot(ARIMA111.Residuals,
+     type = "l",
+     xlab = 'Observation Order',
+     ylab = 'Residual')
+points(ARIMA111.Residuals,
+       pch = 16,
+       cex = .5)
+abline(h = 0)
+
+
+#check against auto.arima()
+auto.arima(TableB3.difference,
+           trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+
+
+```
+
+
+
+
+
+b. "Forecast the last 20 observations." -- No matter what model that you got in 
+part a, to answer question b, please use auto.arima() to get the best model. 
+(This is just for the grading purpose.) Then use the forecast() to get the 
+forecast values. See the R code on page 408. This will give you a 1- to 20- step 
+ahead forecasts.
+
+c. "Show how to obtain prediction intervals..." --- The 80% and 95% Prediction 
+Intervals should have been obtained from part b if you use forecast() function. 
+You don't have to  calculate the Prediction intervals again. For this question, 
+just show the prediction interval formula. 
+
+```{r }
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

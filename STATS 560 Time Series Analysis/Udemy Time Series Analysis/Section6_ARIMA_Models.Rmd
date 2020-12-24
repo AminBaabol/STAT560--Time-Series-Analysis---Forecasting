@@ -1,0 +1,384 @@
+---
+title: 'Section6: Arima Models'
+author: "Amin Baabol"
+date: "11/20/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+ARIMA model is the same as Box-Jenkins model
+ARIMA is perfect for working with univariate data.However, since arima is flexible and thus very general model sometimes exponential smoothing might be a better fit, especially seasonal datasets are easier to  communicate with exponential smoothing or seasonal decomposition.
+AR-Autoregressive part:p
+I- Integration, degree of differencing:d
+MA- moving average part:q
+
+These 3 parameters are integers that describe the grade or the order of the three parts of the AR-I-MA model. Arima model requires AR and MA parts to be stationary time series, the model will make it stationary by differencing done by the model function. how often or the order of differencing is described by the d part of the ARIMA(p,d,q)
+you can manually do the differencing with diff() or you can let the model do it for you.
+
+How to calculate the three parameters?
+1. arima() -estimating the parameters manually by using the ACF and PACF plots---R Base
+2. auto.arima()- R calculates the parameters automatically and chooses a suitable model- library(forecast)
+
+How to read an ARIMA model?
+The whole model is based on: 
+-summation of lags = autoregressive part.
+-summation of forecasting errors = moving average part
+-coefficient: determines the importance of a specific lag
+
+For example:
+if a model only has autoregressive single lag component:
+we denote it as AR(1) or ARIMA(1,0,0): first order (lag) of AR
+AR(2) or ARIMA(2,0,0) second order of AR
+MA(1) or ARIMA(0,0,1): first order of MA
+How to Calculate a model? – parameters p and q
+1.P: AR(1) or ARIMA(1,0,0) –  yt = δ + φ1yt-1 + 𝜀t
+This reads: the observed value(Yt) at time point t consist of 
+-	The constant δ
+-	The value of the previous point(Yt-1) multiplied by a coefficient φ
+-	The error term of time point t(𝜀t)
+2. Q:ARMA(1,1) or ARIMA(1,0,1) - yt = δ + φ1yt-1 + Θet-1 + 𝜀t 
+      - Extra step: forecast error term for the first lag(et-1) multiplied by coefficient Θ
+      - Forecast error at t: the difference between the actual and the forecasted value at time t
+3. How to calculate parameter d?
+-Example: ARIMA(0,1,0) Random walk: The mean is not constant(not stationary), 
+  which is required for a forecast.
+-The solution here is differencing: The present observation or expected value  at time t minus the previous observation equals a constant plus an error term at time point t. yt - yt-1 = δ + 𝜀t
+Often times backshift operator: B or L represents a differenced time series
+Byt =  yt-1
+
+
+```{r}
+#ARIMA with auto.arima
+plot(lynx)
+
+# from the standard time series plot we can see cyclical pulse that doesn't have a fixed season.
+# when you see this kind of undefined pattern, it is best to build an ARIMA model.
+# AR-autoregressive:p is our first parameter.
+# we confirm that the model is largely autoregressive by looking at the ACF and PACF plots.
+
+
+library(forecast)
+tsdisplay(lynx)  #autogression?
+
+# in the ACF plot we can see several of these lags are outside of the threshold line. 
+# The ACF plot shows an autocorrelation in these lags and this needs to be captureed in the model.
+# the PACF shows two lags crossing the the threshold line which indicates that this model will be at least an AR(2) model. The AR order might be even higher and there could be an MA part as well.
+
+
+### Do we need differencing of the lynx dataset?
+      # we need differencing when the time series is non-stationary
+      # that means the statistical properties change overtime in the plot
+#however, the lynx time series plot looks harmonic and stationary
+
+
+#### ***Stationarity***
+  #Does the data show the same statistical properties throughout the time series?
+  # statistical properties: variance, mean, autocorrelation
+  # if a data lacks stationarity there are transformations to be applied to make it stationary like differencing.
+  # differencing adjusts the data according to the time spans that differ in variance or mean so the statistics remains constant
+
+#### ***De-trending***
+  # soften time series have trends in them -> the mean changes as a result of the trend which causes underestimated predictions
+  # Solution:
+    #test if you get stationarity if you de-trend the dataset: take out the trend component out of the datset -> trend stationarity
+    #if the procedure is not enough then you can use differencing -> difference stationarity
+    #unit-root test tell whether a trend is stationary or a difference stationary
+      #the first difference goes from one period to the very next one(two sucessive steps)
+      #the first difference is stationary and random -> random walk(each value is a random step away from the previous value)
+      #the first difference is stationary but not completely random(values are auto-correlated) -> requires more sophisticated model(exponential smoothing, ARIMA)
+      #library 'urca': unit root tests
+      #library 'tseries'-> adf.test(x): the augmented Dickey-Fuller test removes auto-correlation and tests for non-stationarity
+      #library 'fUnitRoots'-> more advanced tests for non-stationarity
+#Stationarity: using unit-root
+random.values <- rnorm(1000)
+library(tseries)
+adf.test(random.values)
+#the p-value is below 0.05. therefore, we reject the null hypothesis of non-stationarity towards in favor of the stationarity hypothesis.
+nottem
+plot(nottem)
+plot(decompose(nottem))
+adf.test(nottem)
+#stationary
+
+y <- diffinv(random.values)
+plot(y)
+adf.test(y)
+#non-stationary
+
+
+
+### first ARIMA model
+auto.arima(lynx)
+  #we get ARIMA(2,0,2) this is so far in line with the initial plot. the whole thing looks fairly autoregressive
+auto.arima(lynx, trace = TRUE)
+auto.arima(lynx, trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+#we get ARIMA(4,0,0 )
+
+###Calculating an ARIMA Model
+  #Model: ARIMA(2,0,0) is the same thing as ARMA(2,0) or AR(2)
+  #Autoregressive or AR model: explains the future by regressing on the past**
+        #Goes back in time
+        #Checks its own results
+        #Does a forecast
+AR.2 <- arima(lynx, order = c(2,0,0))
+AR.2
+
+tail(lynx)
+residuals(AR.2)
+
+#Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+#Yt-mu = δ + φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+#present year's lynx trappings = constant + coefficient1*last year's lynx catches + coefficient2*prior year's lynx catches + current error term.
+#In sample vs forecast
+#In sample model: all the data is available, results are calculated based on the model as usual
+#forecasted model: the Y values and the error terms need to be calculated prior to the application of the model -> kalman filter
+#Limitations and bugs of arima() function
+    # It does not compute constants if there is differencing required
+
+#check the equation for AR(2)
+  #Yt-mu = δ + φ1(yt-1) + φ2(yt-2) + 𝜀t 
+  #Yt = φ1(yt-1 - mu) + φ2(yt-2 - mu) + 𝜀t 
+  #yt=3396
+  #intercept = mean <- mu = 1545.4458
+  #φ1 = 1.1474, φ2 = -0.5997, yt-1 = 2657, yt-2 = 1590, 𝜀t = 601.838001
+#yt <- ((1.1474*(2657-1545.4458)) - (0.5997*(1590-1545.4458)) + 601.838001)
+#3396-1545.4458
+
+
+
+```
+```{r}
+##MA(2) Model
+MA2 <- arima(lynx, order = c(0,0,2))
+MA2
+residuals(MA2)
+
+
+#check the equation MA(2)
+#Yt = δ  + Θ1(et-1) + Θ2(et-2) +𝜀t 
+#Yt-mu = (Θ1et-1 -mu) + (Θ2et-2 - mu) +𝜀t 
+#present year's lynx catches = constant + coefficient1*error term1 + coefficient2*error term2 + current/present error term
+(1.1407*844.72) + (0.4697*255.91) + 766.83
+
+
+# ** Differencing: substract the consecutive observations from each other
+# ** Forecasting: error terms and autoregressive terms need to be probabilistically estimated
+```
+
+
+### Simulating Time Series Based on ARIMA
+
+```{r}
+#arima.sim(                    # R Base function
+    #model =                   # Describing the ARIMA model
+        #list(                 # Needs to be a list with the model components
+              #order = c(),        # Order of the model
+              #ar = c(),           # Autoregressive(AR) parameter coefficient
+              #ma = c()),          # Moving average(MA) parameter coefficient
+    #n = 1000)                 # Number of observations of the produced time series
+    #+ 10                      # Specifying a mean <- it can be any other numeric value
+
+#example
+set.seed(123)
+asim <- arima.sim(model = list(order = c(1,0,1),
+                       ar = c(0.4),
+                       ma = c(0.3)),
+          n = 1000)
++ 10
+        
+plot(asim)
+library(zoo)
+plot(rollmean(asim,50))
+plot(rollmean(asim,25))
+# the plot shows that when the mean reaches the peak it drops fairly fast. there is not much middle ground. It goes from one extreme to the other which is an indicator of autoregression
+
+## Stationarity
+library(tseries)
+adf.test(asim)
+#low-p-value, therefore, we reject the null of non-stationarity
+
+#Autocorrelation
+library(forecast)
+tsdisplay(asim)
+#we need the ACF & PACF to identify the p & q parameters of the ARIMA model
+# we have significance at the first two lags both at the ACF & PACF, that means in manual order selection we could start with p =1 or p=2 for autocorrelation and later on test for extra orders based on residuals.
+#we can confirm the parameters we selected with auto.arima()
+auto.arima(asim,
+           trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+
+```
+
+## Manual ARIMA Parameter Selection
+Time series analysts sometimes advise against using the auto.arima() function
+    -using auto.arima() and understanding proper parameter selection has its benefits
+R Base: arima() <- constant is not calculated if a differencing step is required
+Library(forecast): Arima() is recommended
+
+###Steps for manual parameter selection
+1.Test for stationary - adf.test() from library(tseries) to see if ARIMA(p,d=0,q)
+2.Test for autoregression - ACF() and PACF() plots from R Base or tsdisplay() 
+  from library(forecast). Significant lags tell you the p & q order
+3.Set up an ARIMA model
+4.Check the AICs information criteria
+5.Check the residuals - checkresiduals() from library(forecast) because there 
+  should be no more autoregression in them. The residuals should be random and 
+  normally distributed.
+6.Adjust the parameters based on the results of steps 4 and 5
+7.Optonal: run auto.arima() on the dataset to confirm your model parameter selection
+
+```{r}
+## ARIMA parameter selection
+
+#1 check for stationarity
+#stationary times series means we can set d=0 in ARIMA(p,d=0,q)
+library(tseries)
+adf.test(lynx)
+#low p-value, therefore, we reject the non-stationarity null hypothesis
+
+#2 checking for autoregression
+#ACF indicates the lags for MA - parameter q
+#PACF indicates lags for AR - parameter p
+#if ACF shows many significant lags, it helps to look at the PACF since these two interact
+
+library(forecast)
+tsdisplay(lynx)
+#let's say the first two PACF lags are significant, 
+myarima <- Arima(lynx, order = c(4,0,0))
+tsdisplay(lynx)
+checkresiduals(myarima)
+AIC(myarima)
+BIC(myarima)
+
+# if the first couple of lags are significant we can be sure the model needs readjustment but the ACF plot shows lag 7 and lag 19 are significant which is a borderline situation because it could be by chance.
+
+#we check the residuals using checkresiduals() from library(forecast) because there should be no more autoregression in them. The residuals should be random and normally distributed.
+
+
+
+
+## Example MA time series
+set.seed(123)
+
+#simulation
+myts <- arima.sim(model = list(order = c(0,0,2),
+                               ma = c(0.3,0.7)),
+                  n = 1000) + 10
+myts
+
+#Stationarity
+adf.test(myts)   #low p-value
+
+#Autocorrelation (ACF&PACT)
+tsdisplay(myts)
+
+
+#ARIMA model
+myarima.ma <- Arima(myts,
+                    order = c(0,0,2))
+
+#Check the residuals
+checkresiduals(myarima.ma)
+
+
+#check against auto.arima()
+auto.arima(myts,
+           trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+```
+
+### How to Identify ARIMA Model Parameters
+Rules that help in ARIMA parameter selection
+1. Parameter d
+2. Parameters p & q
+3. seasonal parameters P,D,Q
+
+Always test and compare different models
+-Information criteria
+-Residual diagnostics
+
+Parameter d
+  -Add +1 step to d if high numbers of significant lags are present in the 
+   PACF plot(lag 8 or higher)
+       -Avoid a high p parameter, adding a differencing step should decreasing p and 
+       simplify the model
+  -If the first lag in the PACF is not significant then that means no more 
+   differencing is required.
+       -Non-significant 1st lag in a PACF plot
+       -Autocorrelation in a PACF plot appears random
+  -What the order of d tells about the data:
+        0: stationary data(constant means,variance)
+        1: trending data
+        2: varying trend(no constant)
+        
+        
+Parameter p & q
+  -Add +1 to p if the PACF plot shows 
+        -Positive significance at lag 1
+        -Sharp cutoff between significant and non-significant lags
+  -Add +1 to q if the ACF plot shows
+        -Negative significance at lag 1
+        -Sharp cutoff between the significant and the non-significant lags
+  -AR and MA correlate: never add p & q orders at the same time to the ARIMA parameters.
+   Test them individually because they have effect on each other.
+  -Add a differencing step(d) if the summation of coefficients (AR or MA) is close to 1.
+  
+  
+  
+
+Rules for Identifying Seasonal Parameters
+  *Get ACF and PACF plots for minimum of 3 full seasonal cycles + extra buffer
+      -Example: if you have a monthly data and there's seasonality, you should print at least            36months + 6= 40months
+      -Set D to 1 if a strong seasonal pattern is present: that means the seasonal pattern
+       stays constants over several cycles.It's good practice to never use more 1 for D.
+      -Add +1 to P if a positive significant lag is present in all seasonal cycles(AR order)
+      -Add +1 to Q if a negative significant lag is present in all seasonal cycles(MA order)
+  *Positive autocorrelation likely occurs:
+      -Dataset with non-constant seasonal effect and no seasonal differencing
+      
+      
+      
+
+#### ARIMA Forecasts and Visualization
+```{r}
+#Arima model
+myarima <- auto.arima(lynx,
+                      stepwise = F,
+                      approximation = F)
+
+#forecast the next 10 years
+arima.forecast10 <- forecast(myarima, h = 10)
+plot(arima.forecast10)
+
+#see the forecasted values
+arima.forecast10$mean
+
+#plot last observations and the forecast
+plot(arima.forecast10, xlim = c(1930,1944))
+
+
+#ETS for comparison
+myets <- ets(lynx)
+etsforecast <- forecast(myets, h = 10)
+
+
+#comparison plot for 2 models
+library(ggplot2)
+autoplot(lynx) + 
+  forecast::autolayer(etsforecast$mean, series = 'ETS Model') + 
+  forecast::autolayer(arima.forecast10$mean, series = 'ARIMA Model') + 
+  xlab('year') + ylab('Lynx Trappings') + 
+  guides(
+    colour = guide_legend(
+      title = 'Forecast Method'))
+  theme(
+    legend.position = c(0.8,0.8))
+```
+

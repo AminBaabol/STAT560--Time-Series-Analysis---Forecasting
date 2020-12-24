@@ -1,0 +1,414 @@
+---
+title: "Homework 7"
+author: "Amin Baabol"
+date: "11/19/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### Problem 5.12:
+
+```{r}
+#Packages
+library(tseries)
+library(forecast)
+library(zoo)
+```
+
+### Problem 5.12:
+
+
+##Instructions:
+
+### Part 5.2a
+a) "Fit an ARIMA model"  -- specify the model and give the estimators of 
+the coefficients. For example, if you use a AR(2) model to fit the data, then you 
+need to give the model like y_t = 30 + 0.5 y_{t-1} + 0.3 y_{t-2} + \epsilon_t. 
+Your answer should include the ACF and PACF of the data, then determine your 
+"best" model. You can use the auto.arima() function to double check. 
+
+
+"Investigate the model adequacy" --  show the 4-in-1 residual plots, and ACF and 
+PACF plots for the residuals. Then interpret your outputs/results.
+
+
+"Explain how this model would be used for forecasting" -- show the forecast model. 
+To specify the forecast model, you need to show how to get estimators of the
+$\Psi_i$'s. Show at least the first 4 $\Psi_i$'s. Similar to what we did for 
+Example 5.3, 5.4, and 5.5 on page 381-382 in the class. The general forecast model 
+is shown as the equation of (5.88) on page 379.
+
+
+
+
+
+###Answer:
+
+From the standard time series plot we can see an irregular, cyclical pulses
+with no apparently defined pattern.The non-stationarity of the original time series
+data is implicated by its ACF plot which seems to be undergoing an exponential decay
+while the PACF plot quickly drops to zero after the first lag.The Augmented Dickey-Fuller 
+Test supports this non-stationarity indication hinted by the ACF and the PACF plots with
+its large p-value of 0.2603.Hence,we fail to reject the null hypothesis, that is 
+the time series is non-stationary.
+
+After the first differencing, the stationarity of the difference time series is 
+validated by the ACF and PACF plots which indicate perhaps 1 or less significant
+lags.I propose using ARIMA(1,0,0) of the difference times series as well as
+ARIMA(0,1,0) of the original time time series.
+
+
+
+```{r}
+Viscosity.Reading <- read.csv("~/Desktop/GradSchool/STATS 560 Time Series Analysis/Lecture/ViscosityData.csv",
+                              header = TRUE)
+Viscosity.Reading
+#Convert to time series
+ViscosityReading.TS <- ts(Viscosity.Reading)
+
+
+#time series plot
+library(lattice)
+xyplot.ts(ViscosityReading.TS,
+          main = 'Time Series Plot of Viscosity Reading Data',
+          xlab = 'Time Period',
+          ylab = 'Viscosity Reading')
+
+
+#Stationarity check of the original time series
+#ACF and PACF plots
+tsdisplay(ViscosityReading.TS)
+
+#Stationarity:Dicke-Fuller test 
+adf.test(ViscosityReading.TS)
+
+
+```
+
+
+The ACF and PACF plots of the differenced time series shows no significant autocorrelation
+spiking. Moreover,The Augmented Dickey-Fuller Test shows a statistically significant p-value 
+of less then 0.01. Hence, we reject the null hypothesis that the time series is 
+non-stationary in favor of the alternative hypothesis that the time series data 
+is now stationary.
+
+```{r Differencing}
+#First order differencing
+ViscosityTS.Diff <- diff(ViscosityReading.TS, differences = 1)
+
+#Stationarity check of the differenced time series
+#ACF and PACF plots
+tsdisplay(ViscosityTS.Diff)
+
+#Stationarity:Dicke-Fuller test 
+adf.test(ViscosityTS.Diff)
+```
+
+
+The first proposed model, ARIMA(0,1,0) has relatively low AIC score of 300.27.
+Checking its residuals we see that the  QQ-plot shows the normal distribution of the
+residuals isn't violated. The fitted vs the residuals shows a fairly good degree of randomness
+centered around zero with a +/-2 margin, while the histogram indicates relative normal 
+distribution of the residuals with some skewness.Lastly, the residual vs. observation 
+order plot show that residuals exhibit normal random noise around 0 which suggests t
+hat there is no serial autocorrelation.
+
+After checking the residual ACF and PACF of the ARIMA(0,1,0) model, we can see that
+both plots indicate there's no significant autocorrelation remaining in the residuals.
+
+
+```{r ARIMA(0,1,0)}
+arima010 <- Arima(ViscosityReading.TS, order = c(0,1,0))
+arima010
+fitted<-as.vector(fitted(arima010))
+
+
+#Model diagnosticso
+#4-in-1 plot of the residuals
+par(mfrow=c(2,2),oma=c(0,0,0,0))
+qqnorm(arima010$residuals,
+       pch=1,
+       xlab='Residual',
+       main='')
+qqline(arima010$residuals,
+       col="green",
+       lwd=1.5)  
+plot(fitted,
+     arima010$residuals,
+     pch=16, 
+     xlab='Fitted',
+ylab='Residual')
+abline(h=0)
+hist(arima010$residuals,
+     col="gray",
+     xlab='Residual',
+     main='')
+plot(arima010$residuals,
+     type="l",
+     xlab='Observation Order',
+ylab='Residual')
+points(arima010$residuals,pch=16,cex=.5)
+abline(h=0)
+
+#Residual acf and pacf
+checkresiduals(arima010)
+```
+
+The ARIMA(1,0,0) model seems to be doing better than the previous mode.The 
+residual ACF and PACF plots show no significant autocorrelation remaining.The AIC
+score at 296 is lower than the previous model which had an AIC of 300 and the auto.arima()
+model seems to be close to ARIMA(1,0,0) model's AIC. Furthermore,The qq-plot,histogram,
+fitted vs. residuals all seems to be suggesting relative normal distribution with good 
+random dispersion of the residuals.
+
+
+
+
+```{r AR(1)}
+arima100 <- Arima(ViscosityReading.TS, order = c(1,0,0))
+arima100
+fitted<-as.vector(fitted(arima100))
+
+
+#Model diagnostics
+
+#4-in-1 plot of the residuals
+par(mfrow=c(2,2),oma=c(0,0,0,0))
+qqnorm(arima100$residuals,
+       pch=1,
+       xlab='Residual',
+       main='')
+qqline(arima100$residuals,
+       col="green",
+       lwd=1.5)  
+plot(fitted,
+     arima100$residuals,
+     pch=16, 
+     xlab='Fitted',
+ylab='Residual')
+abline(h=0)
+hist(arima100$residuals,
+     col="gray",
+     xlab='Residual',
+     main='')
+plot(arima100$residuals,
+     type="l",
+     xlab='Observation Order',
+ylab='Residual')
+points(arima100$residuals,pch=16,cex=.5)
+abline(h=0)
+
+#Residual acf and pacf
+checkresiduals(arima100)
+
+
+#check against auto.arima()
+auto.arima(ViscosityReading.TS,
+           trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+```
+
+
+
+Therefore, I selected to move forward with ARIMA(1,0,0). 
+
+Model equation: 
+$$y_{t} = 84.9827 + 0.7859*y_{t-1}+\epsilon_{t}$$
+
+## Forecast model
+$$Y_t-\mu = \phi(Y_{t-1}-\mu)+\epsilon_t$$
+
+3.$$E(\epsilon_t+1|Y_1,Y_2,...,Y_t) = 0$$
+
+Forecasting 
+
+$$Y_{t+1}$
+$$\hat{Y}(1) = \mu + \phi(Y_t-\mu)$$
+
+Subsequently, we get
+
+$$\hat{Y}(l) = \mu + \phi^l(Y_t-\mu)$$
+
+Step-ahead forecast
+
+1-step ahead
+$$ \hat{Y}(1) = \mu + \phi^1(Y_t-\mu)$$
+2-step ahead
+$$\hat{Y}(2) = \mu + \phi^2(Y_t-\mu)$$
+3-step ahead
+$$\hat{Y}(3) = \mu + \phi^3(Y_t-\mu)$$
+4-step ahead
+$$\hat{Y}(4) = \mu + \phi^4(Y_t-\mu)$$
+$$Y_{t+1}$
+
+
+
+
+### Part 5.2b
+
+##Instructions:
+"Forecast the last 20 observations." -- No matter what model that you got in 
+part a, to answer question b, please use auto.arima() to get the best model. 
+(This is just for the grading purpose.) Then use the forecast() to get the forecast
+values. See the R code on page 408. This will give you a 1- to 20- step ahead forecasts.
+
+
+```{r}
+optimal.arima <- auto.arima(ViscosityReading.TS,
+                            trace = TRUE,
+                            stepwise = FALSE,
+                            approximation = FALSE)
+
+forecast <-as.array(forecast(optimal.arima,h = 20))
+paste("Last 20 observations")
+forecast
+```
+
+
+
+### Part 5.2c
+
+##Instructions:
+
+"Show how to obtain prediction intervals..." --- The 80% and 95% Prediction Intervals 
+should have been obtained from part b if you use forecast() function. You don't 
+have to  calculate the Prediction intervals again. For this question, just show 
+the prediction interval formula. 
+
+
+Formula for 95% prediction interval 
+$$\hat{y}_{T+\tau}(T)\pm (1.96)*\sigma(\tau)$$
+
+Formula for 80% prediction interval 
+$$\hat{y}_{T+\tau}(T)\pm (1.282)*\sigma(\tau)$$
+
+
+
+### Part 5.33
+
+##Instructions:
+
+Develop an ARIMA model and a procedure for forecasting for these data."--- Show 
+the model and compute the 1- to 10-step ahead forecasts. Similar to 5.12, but you
+can skip the calculation of $\Psi_i$'s.
+
+"Explain how prediction intervals would be computed." --- show the prediction 
+intervals formula. Compute the 95% prediction intervals for the 1- to 10-step 
+ahead forecasts. 
+
+##Answer
+The initial time series data turns out to be non-stationary.So, we differenced 
+the time series twice in order to get it to a stationary state. The second difference
+time series ACF and PACF plots show no clear significant spike.
+
+
+```{r}
+Crimes.data <- read.csv("~/Desktop/GradSchool/STATS 560 Time Series Analysis/Lecture/TableB15.csv",
+                              header = TRUE)
+
+#Convert to time series
+Crimes.ts <- ts(Crimes.data[,2],
+                start = 1984)
+Crimes.ts
+
+#first check auto.arima()
+auto.arima(Crimes.ts,
+           trace = TRUE,
+           stepwise = FALSE,
+           approximation = FALSE)
+
+###Stationarity check
+#ACF and PACF plots
+tsdisplay(Crimes.ts)
+
+
+
+#First order differencing
+Crimes.Diff1 <- diff(Crimes.ts, differences = 1)
+
+###checking stationarity of the 1st order difference time series
+#First difference ACF and PACF plots
+tsdisplay(Crimes.Diff1)
+
+
+
+#Second order differencing
+Crimes.Diff2 <- diff(Crimes.Diff1, differences = 1)
+
+###checking stationarity of the 2nd order difference time series
+#Second difference ACF and PACF plots
+tsdisplay(Crimes.Diff2)
+
+
+```
+
+
+ARIMA(1,2,0) model with estimator coefficient $$w_{t}^2 = -0.4533*w_{t-1} + e_t$$ 
+seems to be the most promising out of the proposed models. It has the lowest 
+criteria information.The residual ACF doesn't show any spikes crossing
+the significant threshold boundary. The residual histogram looks fairly normally
+distributed with a hint of a left sknewness.
+
+Lastly,prediction interval can be computed by applying the variance operator to 
+the forecast errors, meaning we estimate the prediction error variance using the 
+forecasting equation and plug it into the standard prediction interval equation.
+$$ \hat{y}_{T+\tau}(T)\pm (1.96)*\sigma(\tau) $$
+
+```{r Models}
+arima.020 <- arima(Crimes.ts, order=c(0,2,0))
+arima.120 <- arima(Crimes.ts, order=c(1,2,0))
+arima.220 <- arima(Crimes.ts, order=c(2,2,0))
+arima.021 <- arima(Crimes.ts, order=c(0,2,1))
+arima.022 <- arima(Crimes.ts, order=c(0,2,2))
+paste("ARIMA(0,2,0) AIC")
+AIC(arima.020)
+
+paste("ARIMA(1,2,0) AIC")
+AIC(arima.120)
+
+paste("ARIMA(2,2,0) AIC")
+AIC(arima.220)
+
+paste("ARIMA(0,2,1) AIC")
+AIC(arima.021)
+
+paste("ARIMA(0,2,0) AIC")
+AIC(arima.020)
+
+#model diagnostics
+checkresiduals(arima.120)
+
+
+#1 to 10 step ahead Forecasting 
+
+forecast10 <- as.data.frame(forecast(arima.120))
+forecast10
+
+
+#Calculating 95% PI
+paste("Lower bound 95% prediction inverval")
+data.frame(forecast10$`Lo 95`)
+
+
+paste("Lower bound 95% prediction inverval")
+data.frame(forecast10$`Hi 95`)
+
+```
+
+$$w_{t}^2 = -0.4533*w_{t-1} + e_t$$
+
+
+
+
+
+
+
+

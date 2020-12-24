@@ -1,0 +1,224 @@
+---
+title: "Section 3: Times Series Data Pre-Processing and Visualization"
+author: "Amin Baabol"
+date: "11/20/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+Section 3: Times Series Data Pre-Processing and Visualization
+
+### Creating time series of randomly generated numbers starting in November 1914.
+```{r}
+
+x = cumsum(rnorm(n = 450))
+y = ts(x, start = c(1914,11), frequency = 12)
+plot(y)
+library(lattice)
+xyplot.ts(y)
+
+plot(nottem)
+
+#seasonal decomposition in R Base or plot of compoeents
+plot(decompose(nottem))
+
+#Directly plotting a forecast of a model
+#forecast for the next 5 years
+library(forecast)
+plot(forecast(auto.arima(nottem)), h = 5)
+
+# Random walk
+plot.ts(cumsum(rnorm(500)))
+
+#Add on packages for advanced plots
+library(forecast)
+library(ggplot2)
+
+autoplot(nottem) + ggtitle(" Autoplot of Nottingham Temperature Data")
+
+#Time series specific plots(seasonal)
+ggseasonplot(nottem)
+ggmonthplot(nottem)
+
+```
+### Exercise:Seasonal plot
+```{r}
+library(forecast)
+seasonplot(AirPassengers,
+           xlab = "",
+           col = c("red", "blue"),
+           year.labels = T,
+           labelgap = 0.35,
+           type = "l",
+           bty = "l",
+           cex = 0.75,
+           main = "Seasonal plot of dataset AirPasssengers")
+```
+
+### Working with irregular time series: the interval between observations is not fixed.
+Reasons behind irregular times series:
+  -result of inappropriate data collection
+  -hardware or software errors
+  -the nature of the data is irregular(e.g. logs)
+Most modeling techniques require a regular time series.
+Most of the tools are not able to handle differing gaps between the observations.
+
+Possible solution: aggregating the data at a particular unit of time
+  -minimum 1 observation per unit
+  -some information will be lost
+
+Main steps of regularizing process
+  1. convert the characters to a data time format (POSIXct,POSIXlt,Date)
+      -specify a time window(days,weeks,months)
+  2. regularizing the dataset with an aggregate function
+    -at least 1 observation per time unit
+    -moderate amount of NAs or missing data:
+            *apply a favored missing data imputation method
+    -High amount of NAs(25% or more) or missing data:
+            *readjust the time window
+  3. convert the object into a time series(ts)
+    -class "zoo" for irregular time series - library(zoo)
+  
+#Aggregatin example: for irregular dataset
+```{r}
+#dataset: irregular_sensor
+# we are trying to use the mean value of each month at the same date as a regular interval
+irregular_sensor <- scan()
+irregular_sensor
+#Two alternative methods
+
+###Method 1
+#1- Separating the date and time components
+library(tidyr)
+irreg.split1 =
+
+separate(                         # function for separating data and time
+         irregular_sensor,        
+         col = V1,                #perform separation on column "V1"
+         into = c("date", "time"),
+         sep = 8,                 #separate after the 8th character
+         remove = T)              #removes the initial column
+irreg.split1
+
+#using only the date
+sensor.date1 = strptime(irreg.split$date, '%m/%d/%y')
+sensor.date1
+
+                                    
+irregts.df1 =                    #creating a dataframe out of the separated data
+  data.frame(
+    
+    date = as.Date(sensor.date), #take the 'sensor.date' POSIXlt object as the date
+    
+    measurement = 
+      irregular_sensor$V2)   #take 'V2' column of the object 'irregular_sensor' as the measurement
+
+irregts.df1
+
+library(zoo)
+irreg.date1 =                #name of the new object
+  zoo(                      #class 'zoo' for handling of irregular time series
+    irregts.df$measurement, #take the measurement of the 'irregular.df' dataframe
+    order.by = irregts.df$date) #order the measurement by the date column of the same dataframe
+
+irreg.date1
+
+### Final step:Regularizing with aggregate function
+aggregate.irregulartime1 = aggregate(irreg.date,
+                                    as.Date,mean)
+aggregate.irregulartime1
+length(aggregate.irregulartime1) # the original data had 25 observations, the regularized dataset has only 16
+
+
+
+
+###Method 2
+
+#2- Keeping the date and time components as a unit: hours and minutes are relevant
+# %I:%M specify hours and minutes, %p specifies am or pm in R
+
+sensor.date2 = strptime(irregular_sensor$V1,
+                        '%m/%d/%y %I:%M %p')
+sensor.date2
+
+#creating a zoo object
+irreg.date2 = zoo(irregular_sensor$V2,
+                  order.by = sensor.date2)
+irreg.date2
+plot(irreg.date2)
+
+### Finl step: Regularing with aggregate function
+aggregate.irregulartime2 = aggregate(irreg.date2,
+                                  as.Date, mean)
+aggregate.irregulartime2
+length(aggregate.irregulartime2)
+
+
+###Now the data is in regular time series 
+plot(aggregate.irregulartime1)
+plot(aggregate.irregulartime2)
+
+myts = ts(aggregate.irregulartime1)
+plot(myts)
+```
+
+
+### Working with missing data and outliers
+Two factors that obstruct the analysis
+  1. outliers: they can corrupt and manipulate the outcome of the analysis
+  2. missing data: most modeling techniques require the dataset to be complete
+
+```{r}
+
+############ Outliers
+library(readr)
+mydata <- read_csv("Desktop/GradSchool/STATS 560 Time Series Analysis/Udemy Time Series Analysis/ts_NAandOutliers.csv")
+mydata
+
+#convert the 2nd column to a simple time series without frequency
+mydata.ts <- ts(mydata$mydata)
+mydata.ts
+summary(mydata.ts)
+ 
+
+#automatic detection of outliers
+    #library 'tsoutliers': tso()
+    #library 'forecast':tsoutliers()
+library(forecast)
+mydata.ts.outliers <- tsoutliers(mydata.ts)
+mydata.ts.outliers
+plot(mydata.ts)
+
+
+############ Missing Data Imputation
+#libraries 'zoo' and 'forecast'
+#function: na.locf()-last observation carried forward
+
+
+#missing data handling with zoo
+library(zoo)
+mydata.ts.NAlocf = na.locf(mydata.ts)
+mydata.ts.NAfill = na.fill(mydata.ts,33)
+mydata.ts.NAlocf
+mydata.ts.NAfill
+#na.trim()              you can cut out na at the beginning or the end of a dataset
+
+
+# standard NA method in package forecast
+#In case the dataset is seasonal the interpolation is based on exponential smoothig
+mydata.ts.NAinterpolate = na.interp(mydata.ts)
+mydata.ts.NAinterpolate
+#cleaning NA and outliers with forecast
+#tsclean() combines the na.interp() and tsoutliers(). it replaces the missing values and the outliers with locally smoothed values
+mytsclean = tsclean(mydata.ts)
+plot(mytsclean)
+summary(mytsclean)
+```
+
+

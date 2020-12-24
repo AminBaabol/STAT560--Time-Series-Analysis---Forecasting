@@ -1,0 +1,343 @@
+---
+title: "Homework 5"
+author: "Amin Baabol"
+date: "10/23/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Question 1
+The data in Table E4.4 exhibit a linear trend.
+  a. Verify that there is a trend by plotting the data.
+  b. Using the first 12 observations, develop an appropriate procedure
+     for forecasting.
+  c. Forecast the last 12 observations and calculate the forecast errors.
+     Does the forecasting procedure seem to be working satisfactorily?
+
+Further instructions from D2L:
+
+For exercise 4.8, choose the optimum lambda by minimizing the SS_E(\lambda) for a constant process given by Equation (4.29) on page 260 in the text. Also, plot the SS_E ve various \lambda similar to Figure 4.19 on page 264 in the text. For a) A time series plot is needed to verify the trend. b) Give and explain your forecast model. c) List the last 12 forecast values and the corresponding forecast errors. Then analyze the forecast errors by drawing a plot like Figure 4.24 on page 269. 
+
+
+
+### Discussion
+
+a) The plot seems to have an increasing linear-like trend.
+b) Since the plot of the data was linear-trend, I used the first order and second order exponential smoothing to find the optimal lambda which was 0.5 because it produced the lowest or minimum sse. I then I assumed that tau was 1 to make my y-hat prediction using the tau-step-ahead prediction method.
+c) After forecasting the last 12 observations I created a new data frame with three columns. First column I stored the observed values, second column is the forecasted values and the third column is the error column. I calculated a mean absolute percentage error of 19.997% for my forecast error rate. I verified this error rate by computing again the MAPE using the accuracy function which gave me exactly 19.997 as well. This means my forecast accuracy is 80%, that is relatively satisfactory.
+
+
+```{r, Question 1}
+library("readxl")
+Table.E4.4 <- read_excel("~/Desktop/GradSchool/Fall2020/STAT-560/Homework/Table_E4_4.xlsx")
+
+#part a
+plot.ts(Table.E4.4$y,main = "Period vs Y", xlab = "Period",type = "b", pch = 19)
+abline(reg = lm(Table.E4.4$y~time(Table.E4.4$y)))
+
+
+#first-order exponential smoothing function
+firstsmooth <- function(y, lambda, start = y[1], end = y[12]){
+  ytilde <- y
+  ytilde[1] <- lambda*y[1] + (1 - lambda)*start
+  for (i in 2:length(y)) {
+    ytilde[i] <- lambda*y[i] + (1 - lambda)*ytilde[i - 1]
+    }
+ytilde}
+
+
+#optimizing lambda
+lambda.seq = c(seq(0.1,.9,0.1),.95,0.99)
+allSumOFErrors = c()
+obsv <- c()
+predicted <- c()
+difference <- c()
+
+for (i in lambda.seq){
+  la <- i
+  y.smooth1<-firstsmooth(y=Table.E4.4$y[1:12],lambda=la)
+  y.smooth2 <-firstsmooth(y=y.smooth1,lambda=la)
+  y.hat <- (2-(la/(1-la)))*y.smooth1-(1-(la/(1-la)))*y.smooth2
+  Y.obs <- Table.E4.4$y[1:12]
+  predict.error <- (Y.obs-y.hat)
+  sum.sqr.error <- sum((predict.error)^2)
+  obsv <- c(obsv,Y.obs)
+  predicted <- c(predicted,y.hat)
+  difference <- c(difference,predict.error)
+  allSumOFErrors <- c(allSumOFErrors, sum.sqr.error)
+}
+
+allErrorsDf <- data.frame(
+  lambdas = c(lambda.seq),
+  sse = c(allSumOFErrors))
+allErrorsDf
+
+
+#plotting sse vs lambda
+opt.lambda <-allErrorsDf$lambdas[allErrorsDf$sse == min(allErrorsDf$sse)]
+plot(log(sse)~lambdas,data = allErrorsDf,type="b",
+     ylab='SSE',xlab = 'Lambda')
+abline(v = opt.lambda, col = 'red')
+mtext(text = paste("log(SSE) min = ", round(min(log(allErrorsDf$sse)),2),
+                   "\n lambda = ", opt.lambda))
+
+#optimum labda is 0.5
+
+
+
+#part b
+
+#first-order exponential smoothing function
+firstsmooth <- function(y, lambda, start = y[1], end = y[12]){
+  ytilde <- y
+  ytilde[1] <- lambda*y[1] + (1 - lambda)*start
+  for (i in 2:length(y)) {
+    ytilde[i] <- lambda*y[i] + (1 - lambda)*ytilde[i - 1]
+    }
+ytilde}
+
+#Given optimal lambda
+y.smooth1<-firstsmooth(y=Table.E4.4$y[13:24],lambda = 0.5)
+y.smooth2 <-firstsmooth(y=y.smooth1,lambda = 0.5)
+y.hat <- (2-((lambda = 0.5)/(1-(lambda = 0.5))))*y.smooth1-(1-((lambda = 0.5)/(1-(lambda = 0.5))))*y.smooth2
+
+#one-step ahead prediction method
+observed <- Table.E4.4$y[13:24]
+predicted <- y.hat
+forecast_error <- (abs((observed-predicted)/observed))*100
+partB.table <- data.frame(observed,predicted,forecast_error)
+names(partB.table) <- c("Observed","Forecasted","Error(%)")
+period <- seq(13,24,1)
+
+
+
+#forecast table with error column
+partB.table
+
+
+#plotting forecast errors
+plot(period,observed,main = "Period vs Y: Lambda 0.5",
+     xlab = "Period",type = "b", col = "darkgreen",
+     pch = "o", lty=1)
+points(period, predicted, col="darkred", pch = "*")
+lines(period, predicted, col="darkred",lty=2)
+points(period, y.smooth2, col="blue", pch="+")
+lines(period, y.smooth2, col="blue",lty=3)
+legend(13,550,legend=c("Actual","Forecast","Smoother"),
+       col=c("darkgreen","darkred","blue"),
+       pch=c("o","*","+"),lty=c(1,2,3), ncol=1)
+
+```
+
+
+
+
+
+### Question 2
+
+TableB.10 contains seven years of monthly data on the number of airline miles flown in the United Kingdom. This is seasonal data.
+  a. Make a time series plot of the data and verify that it is seasonal.
+  b. Use Winters' multiplicative method for the first six years to develop a forecasting
+     method for this data. How well does this smoothing procedure work?
+  c. Make one-step-ahead forecasts of the last 12 months. Determine the forecast
+     errors. How well did your procedure work in forecasting the new data?
+
+
+Further instructions from D2L:
+
+
+For exercise 4.27, let all parameters equal to 0.2. For a) It is clearly stated. b) Give the forecast model and draw a plot like Figure 4.31 on page 289. c) List the values of the 12 forecast errors. Then analyze the errors by drawing a plot like Figure 4.32 on page 290.
+
+
+### Discussion
+
+a) There does seem to be an upward trend and some sort of seasonal cycle.It's worth noting that the seasonal cycles seem to be growing overtime. This method does a good job of capturing the seasonality and variation of the dataset.
+
+
+b) This smoothing method is easier and less computationally intensive than the tau-step-ahead method. This procedures smooths parameters by minimizing the RMSE while ensuring that the seasonal component of the data is taken into account.
+
+
+c) Comparing the accuracy measures of both method we get:
+
+One-step-ahead method's error/accuracy:                
+ME          RMSE        MAE        MPE        MAPE
+4.413382    4.613956    4.413382   33.22467   33.22467
+
+Holtwinter's method's error/accuracy:
+ME          RMSE        MAE        MPE        MAPE
+1.229644    1.72468     1.403504   9.045062   10.32815
+
+It appears that holtwinter's method is the better and more accurate procedure in forecasting as indicates by the statistics above and the plot below. Having said that, Winter's method is known to overestimate predicted values, so using the damped version of Holtwinter's method might be more appropriate.
+
+```{r}
+library(forecast)
+set.seed(1234)
+TableB10 = read.csv("~/Desktop/GradSchool/Fall2020/STAT-560/Content/TableB10.csv",
+                stringsAsFactors=FALSE)
+names(TableB10) <- c("Month", "Miles")
+
+#part a
+plot(TableB10[,2],type = "b", pch=16,main = "Miles Flown",
+     cex =.5,xlab = 'Date',ylab='Miles',xaxt='n')
+axis(1, seq(1,85,12), TableB10[seq(1,85,12),1])
+abline(reg = lm(TableB10[,2]~time(TableB10[,2])))
+
+
+
+#constructing a model using holtwinter's method
+#part b
+data.timeseries <- ts(TableB10$Miles, start = c(1964,1),frequency = 12)
+y <- TableB10$Miles[1:72]
+
+# convert data to ts object
+y.ts <- ts(y, start = c(1964,1), frequency = 12)
+
+#multiplicative
+miles.hw.mult <- HoltWinters(y.ts,alpha=0.2,beta=0.2,gamma=0.2,
+                             seasonal = "multiplicative")
+
+y2 <- TableB10$Miles[73:84]
+y2.ts <- ts(y2, start = c(2004,1),frequency = 12)
+y2.forecast <- predict(miles.hw.mult, n.ahead=12, prediction.interval = TRUE)
+
+
+plot(y.ts,type = "l", pch = 19,cex=.5,ylim = range(min(y.ts),20),
+     xlab='Date',ylab='Miles Flow(millions)',
+     col = "black", lty=1)
+lines(miles.hw.mult$fitted[,1],type="l",
+      col = "red",pch=19, lty=5)
+legend(1963.8,20,legend=c("Actual","Smoothed"),
+       col=c("black","red"),
+       pch=c(".","_"),lty=c(1,2), ncol=1)
+legend(1965.5,20,c("MAPE 10.32","RMSE 1.72"))
+
+
+#part c
+#forecasting the last 12 observations using holtwinter's method
+y2.forecast
+
+#plotting forecast errors
+plot(y.ts,main = "Multiplicative Model",
+     xlab = "Date",ylab = "Miles Flown(million)",
+     type = "b", col = "darkgreen",ylim = range(min(y.ts),20),
+     pch = "o", lty=1)
+lines(miles.hw.mult$fitted[,1],type = "l", col = "blue")
+lines(y2.forecast[,1], col="blue",type="l",lty=6)
+lines(y2.forecast[,2], col="darkred",type="l",lty=3)
+lines(y2.forecast[,3], col="darkred",type="l",lty=3)
+legend(1964,20,legend=c("Actual","Forecast","95% UPL","95% LPL"),
+       col=c("darkgreen","blue", "darkred", "darkred"),
+       pch=c("o",NA,NA,NA),lty=c(1,2,3,4), ncol=1)
+
+#calculating error 
+forecast.error <- data.frame(Actual= y2, Forecasted = y2.forecast,
+                             Error = abs((y2-y2.forecast)/y2))
+names(forecast.error)
+
+
+#comparing our calculated error to the accuracy function
+accuracy1 <- abs(accuracy(y2.forecast, y2))
+
+calcualed.MAPE <- (mean(forecast.error$Error.fit))*100
+calcualed.MAPE
+
+#Forecast error and accuracy
+forecast.error
+accuracy1
+calcualed.MAPE
+
+
+#part c using the one-step method with lambda being 0.2 and tau  being 1
+y1.smooth1<-firstsmooth(y=TableB10$Miles[1:72],lambda = 0.2)
+y2.smooth2 <-firstsmooth(y=y1.smooth1,lambda = 0.2)
+y2.hat <- (2-((lambda = 0.2)/(1-(lambda = 0.2))))*y1.smooth1-(1-((lambda = 0.2)/(1-(lambda = 0.2))))*y2.smooth2
+
+#one-step ahead prediction method
+observed2 <- TableB10$Miles[73:84]
+predicted2 <- y2.hat
+forecast2_error <- (abs((observed2-predicted2)/observed2))*100
+partc.table <- data.frame(observed2,predicted2,forecast2_error)
+names(partc.table) <- c("Observed","Forecasted","Error(%)")
+
+head(partc.table,12)
+
+accuracy2 <- abs(accuracy(predicted2, observed2))
+accuracy2
+```
+
+
+### Question 3
+
+Instructions from D2L:
+
+For example 4.6, show the plot similar to Figure 4.25 by letting the simple exponential smoother with \lambda = 0.4 and TL smoother with \delta = 0.4. Print the first 10 calculations in a table that is similar to Table 4.9 on page 276. 
+
+
+
+### Discussion
+
+
+
+```{r}
+library("readxl")
+Table.E4.2 <- read_excel("~/Desktop/GradSchool/Fall2020/STAT-560/Content/TableE4_2.xlsx")
+
+
+trigg.leach.smooth <- function(y,delta,y.tilde.start=y[1],lambda.start = 1){
+  T <-length(y)
+#Initializing the vectors
+  Qt <- vector()
+  Dt <- vector()
+  y.tilde <- vector()
+  lambda <- vector()
+  err <- vector()
+#Setting the starting values for the vectors
+  lambda[1] = lambda.start
+  y.tilde[1] = y.tilde.start
+  Qt[1] <- 0
+  Dt[1] <- 0
+  err[1] <- 0
+  for (i in 2:T){
+    err[i] <- y[i]-y.tilde[i-1]
+    Qt[i] <- delta*err[i]+(1-delta)*Qt[i-1]
+    Dt[i] <- delta*abs(err[i])+(1-delta)*Dt[i-1]
+    lambda[i] <- abs(Qt[i]/Dt[i])
+    y.tilde[i] = lambda[i]*y[i] + (1-lambda[i])*y.tilde[i-1]
+  }
+return(cbind(y.tilde,lambda,err,Qt,Dt))
+}
+#Trigg-Leachh smoother for the data
+Trigg.Leach.smooth <- trigg.leach.smooth(Table.E4.2$y,delta = 0.4)
+
+#Simple exponential smoother for the dataset
+simple.expo.smooth <- firstsmooth(y=Table.E4.2$y,lambda = 0.4)
+
+simple.expo.smooth <- data.frame(simple.expo.smooth)
+Trigg.Leach.smooth <- data.frame(Trigg.Leach.smooth)
+colnames(Trigg.Leach.smooth) <- c("y", "Lambda", "Error","Qt", "Dt")
+colnames(simple.expo.smooth) <- c("y")
+
+
+#Plot the data together with TL and exponential smoother like figure 4.25
+plot(Table.E4.2, ylab="y",
+     xlab="Period", main="",pch=20,
+     col="black",type="b", lty =2)
+lines(simple.expo.smooth, col="blue", type="l")
+lines(Trigg.Leach.smooth$y, col="red", type="l")
+legend(2,66,c("Actual","TL Smoother","Exponential Smoother"),
+       pch=c(20, NA, NA),lwd=c(2,.5,.5),
+       cex=.55,col=c("black","blue","red"))
+
+
+head(Trigg.Leach.smooth,10)
+
+
+#comparing Trigg-Leach and simpler exponential outputs
+data.frame(head(Trigg.Leach.smooth$y,10))
+head(simple.expo.smooth,10)
+
+```
+

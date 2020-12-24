@@ -1,0 +1,232 @@
+---
+title: "Homework 6"
+author: "Amin Baabol"
+date: "11/09/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Problem 5.2:
+
+Consider the time series data shown in Table E5.1
+
+
+a. Make a time series plot of the data.
+
+
+
+### Part 5.2a
+
+The time series data as indicated by its plot show random variation pattern that
+does not seem to have have a repeating interval. There also might possible outliers 
+at period 2 and 38.
+
+
+```{r 5.2a}
+#Raw data
+Period <- seq(from = 1, to = 50, by = 1)
+yt <- c(29,20,25,29,31,33,34,27,26,30,
+        29,28,28,26,27,26,30,28,26,30,
+        31,30,37,30,33,31,27,33,37,29,
+        28,30,29,34,30,20,17,23,24,34,
+        36,35,33,29,25,27,30,29,28,32)
+
+#Create a data frame
+Table.E51 <- data.frame(Period,yt)
+
+#Convert the dataframe into time series
+timeseries.data <- ts(Table.E51[,2])
+
+#Plot time series
+plot(timeseries.data,
+     main = "Time Series Plot of Table-E5.1 Data",
+     ylab = "yt",
+     xlab = "Period",
+     col = "navyblue")
+points(timeseries.data,pch="*", col = "red")
+
+```
+
+
+b. Calculate and plot the sample autocorrelation and PACF. Is there
+significant autocorrelation in this time series?
+
+
+### Part 5.2b
+
+There are some short runs where successive observations tend to follow each other 
+for very brief durations,suggesting that there is might be some autocorrelation
+in the data. The ACF plot shows significant spikes at lags 1 and 4. Also,the
+sample ACF cuts off after lag 4 indicating that lag 1and 4 might be autocorrelated.
+On the other hand, The partial autocorrelation plot tails off although it has statistically significant spikes at lags 1,4,7.
+
+
+
+```{r 5.2b}
+library(forecast)
+library(ggplot2)
+sample.acf <- ggAcf(timeseries.data,lag.max = 15)+labs(title = "ACF")
+sample.pacf <- ggPacf(timeseries.data,lag.max = 15)+labs(title = "PACF")
+
+#Calcuation
+ACF.calculation <- acf(timeseries.data, plot = FALSE)[1:15]
+PACF.Calculation <- pacf(timeseries.data, plot = FALSE)[1:15]
+ACF.calculation
+PACF.Calculation
+
+#plots
+sample.acf
+sample.pacf
+
+
+
+```
+
+
+### Problem 5.5:
+
+Consider the time series model yt = 150 − 0.5yt−1 + 𝜀t
+
+
+a) Is this a stationary time series process?
+
+
+### 5.5a
+
+Yes, this AR(1) model is stationary because |phi| which is |-0.5| is less than 1.
+
+
+b) What is the mean of the time series?
+
+
+### 5.5a
+
+The mean for this AR(1) model is 100
+
+```{r 5.5b}
+mu.AR1 <- 150/(1-(-0.5))
+mu.AR1
+```
+
+c)If the current observation is y100 = 85, would you expect the next
+observation to be above or below the mean?
+
+
+### 5.5c
+
+If the current observation y100 is 85 I would expect the next observation y101 to 
+be above the mean as explained by the calculation below.
+
+yt = 150 − 0.5yt−1 + 𝜀t
+
+```{r 5.5c}
+y0 <- 150
+y100 <- 85
+y101 <- 150 - 0.5*85
+y101
+```
+
+
+### Problem 5.7
+
+Consider the time series model yt = 20 + 𝜀t + 0.2𝜀t−1
+
+
+a) Is this a stationary time series process?
+
+
+### 5.7a
+
+This model is an MA(1) process with a constant mean, therefore it is stationary.
+
+
+
+b) Is this an invertible time series?
+
+
+### 5.7b
+
+Yes, it is invertible because the MA parameter theta has an absolute value
+of |0.2| which is less than 1
+
+
+
+c) What is the mean of the time series?
+
+
+### 5.7c
+
+The mean, mu is 20.
+
+
+d) If the current observation is y100 = 23, would you expect the next
+observation to be above or below the mean? Explain your answer.
+
+
+According to the MA model we not only need to know the mean and the current observation
+but we also need to know the previous error in order to predict whether the next observation
+is going to be above or below the mean(20).
+
+
+### Problem 5.8
+
+Consider the time series model yt = 50 + 0.8yt−1 + 𝜀t − 0.2𝜀t−1
+
+
+a) Is this a stationary time series process?
+
+
+### 5.8a
+
+This model is an ARMA(p,q) process. Its stationarity depends on the AR component.
+The root m1 which |phi1| or |0.8| is less than 1.Therefore, it is stationary.
+
+
+b) What is the mean of the time series?
+
+```{r}
+mu.ARMA <- 50/(1-0.8)
+mu.ARMA
+```
+
+c. If the current observation is y100 = 270, would you expect the
+next observation to be above or below the mean?
+
+
+### 5.8c
+
+y101 = 50 + 0.8*270 + t − 0.2𝜀t−1
+
+According to the ARMA model equation, predicting whether the next observation is 
+going to be above or below the mean involves knowing the previous error.Until we are
+able to find the previous error we will not be able to tell whether the next observation 
+will be above or below the mean.
+
+
+
+```{r}
+library(tinytex)
+delta = 50
+phi = 0.8
+theta = -0.2
+simulated.ARMA = arima.sim(list(ar = phi,ma = theta), n = 120) + delta/(1-phi)
+#Time series plot of y(t)
+par(mfrow = c(1,1))
+ts.plot(simulated.ARMA,
+        ylim = range(min(simulated.ARMA),270),
+        ylab = 'yt',
+        main = 'Time series plot',
+        type = 'o')
+abline(h = 250,col = "blue")
+points(100,270,col = "red")
+
+
+
+```
+

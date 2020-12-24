@@ -1,0 +1,171 @@
+---
+title: "Homework4"
+output:
+  word_document: default
+  pdf_document: default
+Author: Amin Baabol
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+Problem 3.7
+The quality of Pinot Noir wine is thought to be related to the properties of clarity, aroma, body, flavor, and oakiness. Data for 38 wines are given in Table E3.4.
+
+a)
+Fit a multiple linear regression model relating wine quality to these predictors. Do not include the "Region" variable in the model.
+```{r }
+library("readxl")
+wine.dat <- read_excel("~/Desktop/GradSchool/Fall/STAT-560/Content/TABLEeB4.xls")
+
+#building the multiple linear regression model with all the predictors covariates included except region
+model1.lm <- lm(formula = Quality ~ Clarity + Aroma + Body + Flavor + Oakiness, data = wine.dat)
+model1.summary <- summary(model1.lm)
+
+```
+
+b) 
+Test for significance of regression. What conclusions can you draw?
+
+
+```{r }
+model1.summary
+anova(model1.lm,test='Chisq')
+plot(model1.lm, which = 1)
+
+
+```
+Part b discussion:
+We have two options:
+Null Hypothesis: there is no linear relationship between the explanatory covariates and the response variable.
+
+Alternative hypothese: There's a relationship between the independent and response variables.
+Our first preliminary model which included all the independent variables except region isn't so promising. At this point in time, none of the independent variables have any significance, the the adjusted R-squared is -0.025 which is not a good sign, also the F-statistic is way less than the critical value, the standard error for the coefficients are also very high. we can't reject the alternative hypothis and accept the null hypothesis just yet. I'd add some interaction terms to see if the significance improves before rejecting the alternative hypothesis.
+
+
+
+c)
+Use t-tests to assess the contribution of each predictor to the
+model. Discuss your findings.
+
+```{r}
+model1.summary$coefficients
+
+```
+Part c discussion:
+Looking at the t-tests for each coefficient, we can see that none of the coefficients have any significance  coefficients. They all have large p-values greater than 0.05 and very small t-values, indicating they are not significant, and do not offer significant predictive power to the model.However, it's quiet possible that this model can be improved by adding interactive terms.
+
+
+
+d)
+Analyze the residuals from this model. Is the model adequate?
+
+
+```{r}
+#Residuals vs Fitted
+plot(model1.lm, which = 1)
+mtext("Figure 5", side = 3,line =1, font = 4, cex = 0.8)
+
+#Normal Q-Q plot
+plot(model1.lm, which = 2)
+mtext("Figure 6", side = 3,line =1, font = 4, cex = 0.8)
+
+#Scale-Location
+plot(model1.lm, which = 3)
+mtext("Figure 7", side = 3,line =1, font = 4, cex = 0.8)
+
+#Residuals vs Leverage
+plot(model1.lm, which = 5)
+mtext("Figure 8", side = 3,line =1, font = 4, cex = 0.8)
+
+shapiro.test(model1.lm$residuals)
+```
+Part d discussion:
+Starting with the first figure:
+
+Figure 5 (Residuals vs Fitted) does not show any pattern. The residuals are randomly spread. Therefore the multiple linear model can be considered a good fit.However, it's evident from the plot that the fitted and the resituals need temperating to improve distortion, so they can be better fitted.
+
+Figure 6 (Normal Q-Q plot) indicate that the residuals are normal distributed because the qqplot is approximately a straight line. The Shapiro-wilk test also indicates the same. The p-value of the test is greater than 0.05. We fail to reject the Null-hypothesis. Therefore, the residuals are normally distributed.
+
+Figure 7 (Scale-Location) reveals that residuals have constant variance.
+
+Figure 8 (Residuals vs Leverage) reveals that there are no influential outliers except the we see in the plot.
+All the model assumptions are met. And the residuals indicate model is adequate.
+
+
+e)
+Calculate R2 and the adjusted R2 for this model. Compare these values to the R2 and adjusted R2 for the linear regression
+model relating wine quality to only the predictors “Aroma” and “Flavor.”
+Discuss your results.
+
+```{r}
+#model1 R squared and adjusted R squared
+R.sqr1 <- model1.summary$r.squared
+R.adj1 <- model1.summary$adj.r.squared
+cmp_1 <- data.frame(R.sqr1, R.adj1)
+colnames(cmp_1) <- c("R-squared","Adjusted R-squared")
+row.names(cmp_1) <- c("Model One")
+
+
+#model2 R squared and adjusted R squared
+model2.lm <- lm(Quality~Aroma+Flavor, data = wine.dat)
+model2.summary <- summary(model2.lm)
+R.sqr2 <- model2.summary$r.squared
+R.adj2 <- model2.summary$adj.r.squared
+cmp_2 <-  data.frame(R.sqr2,R.adj2)
+colnames(cmp_2) <- c("R-squared","Adjusted R-squared")
+row.names(cmp_2) <- c("Model Two")
+
+rbind(cmp_1,cmp_2)
+```
+Part e discussion:
+The R-squared and Adjusted R-squared of the first model with all the predictors are 0.113922805	-0.02452676 respectively. The adjusted R-square is adjusted for the number of predictors in the model. It can be interpreted as 11% of the variance in the quality is explained by the predictor variables. Since few of the predictor variables in the model are not significant, Adjusted R-squared is fairly less than the R-square.
+
+
+The R-squared and Adjusted R-squared of the second model with only flavor and aroma as predictors is 0.002944883 and	-0.05402970	respectively. It can be interpreted as 0.3% of the variance in the quality is explained by the predictor variables. Since the aroma variable is not significant, Adjusted R-squared is less than R-squared. 
+
+There is not much difference in Adjusted R-squared of both the models. The first model has many predictor variables. Even then Adjusted R-squared of the first model is not very much higher than that of the second model. This indicates that many of the predictor variables in the variables are not contributing to the model.
+
+
+f)
+Find a 95% CI for the regression coefficient for “Flavor” for both
+models in part e. Discuss any differences.
+
+```{r}
+
+cat("95% CI of Flavor: First Model\n")
+confint(model1.lm,"Flavor") 
+cat("\n")
+cat("95% CI of Flavor: Second Model\n")
+confint(model2.lm,"Flavor")
+```
+
+Part f discussion:
+We are 95% confident that the true coefficient of flavor in the first model will be in the range -7.479914 to 8.964528 and -8.60825 to 7.589889 in the second model. The upper and lower bounds of the regression coefficient for flavor are not very much different. But it can be said that the standard error of flavor in the first model is is just a little higher because the confidence interval is slightly wider. The standard error of flavor in the second model is comparitively less because the confidence interval is narrower.
+
+
+Problem 3.26:
+Consider the wine quality data in Exercise 3.7. Use variable selection
+techniques to determine an appropriate regression model for these
+data.
+
+We're going to use a stepwise regression with forward and both selection to optimise our variable selection process
+```{r}
+library(MASS)
+# Fit the full model 
+full.model <- lm(Quality ~., data = wine.dat)
+# Stepwise regression model
+stepwise.forward.model <- stepAIC(full.model, direction = "forward", 
+                      trace = FALSE)
+stepwise.model <- stepAIC(full.model, direction = "both", 
+                      trace = FALSE)
+summary(stepwise.forward.model)
+summary(stepwise.model)
+
+
+```
+
+Discussion:
+According to the stepwise model with the forward selection, only Oakiness was statistically significant at the 0.05 level. This forward selection stepwise method has an adjusted R squared of 0.007663 which is extremely low. The next stepwise technique with the both direction method is slightly better, suggesting that both the intercept and the Oakiness are the only two statistically significant variables with an adjust R squared of 0.06766. Though this adjusted R squared is very low indicating there is almost no relationship between the variables. The F-statistics further indicates that the predicating covariate are collectively insignificant in explaining the response variable. We therefore, reject the alternative hypothesis and accept the null hypothesis.

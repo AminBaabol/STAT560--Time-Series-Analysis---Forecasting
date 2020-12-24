@@ -1,0 +1,522 @@
+---
+title: "STAT 560 Final Exam"
+author: "Amin Baabol"
+date: "12/3/2020"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Question 1:
+(5 points) Plot the crime rate data vs the year.
+
+
+
+## Discussion:
+The plot indicates a steady rise in crime rate from 1984 up to around 1992, at 
+which point there is a significant drop in crime rate.
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(forecast)
+library(tseries)
+library(zoo)
+library(gridExtra)
+
+Final_data <- data.frame(read_excel("~/Desktop/GradSchool/STATS 560 Time Series Analysis/Exams/Final_data.xlsx"))
+head(Final_data)
+
+
+#Converting it to time series
+CrimeRate.ts = ts(Final_data[,2], start = 1984, end = 2005,frequency = 1)
+CrimeRate.ts
+
+
+#year vs. crime rate time series plot 
+Original.ts <- plot(CrimeRate.ts, type = "o",
+                   main = "Time Series Plot of The original Data")
+Original.ts
+
+```
+
+
+
+## Question 2:
+(10 points) Calculate and plot the sample autocorrelation function (ACF) and variogram.
+
+
+##Discussion:
+The ACF shows a sinusoidal pattern and significant higher lags.This indicates the
+suspected nonstationary time series.Therefore, differencing this time series is 
+recommended moving forward.
+
+```{r}
+set.seed(1242)
+#Calcuation
+ACF1.calculation <- acf(CrimeRate.ts, plot = FALSE)
+PACF1.Calculation <- pacf(CrimeRate.ts, plot = FALSE)
+
+
+#ACF plot
+Original.ACF <- ggAcf(CrimeRate.ts,lag.max = 20)+labs(title = "ACF")
+Original.PACF <- ggPacf(CrimeRate.ts,lag.max = 20)+labs(title = "PACF")
+Original.ACF
+Original.PACF
+
+#Variogram
+# Define the variogram function:from Dr. Fan's slides
+variogram_func <- function(x, lag) {
+  x <- as.matrix(x) 
+  Lag <- NULL
+  var_k <- NULL
+  vario <- NULL
+  for (k in 1:lag) {
+    Lag[k] <- k
+    var_k[k] <- sd(diff(x, k))^2
+    vario[k] <- var_k[k] / var_k[1]
+    }
+  return(as.data.frame(cbind(Lag, vario)))
+}
+
+
+x <- CrimeRate.ts
+lag_length <- 20
+lag_CrimeRate <- 1:lag_length
+z <- variogram_func(x, lag_length)
+variogram_CrimeRate <- z$vario
+variogram_CrimeRate
+
+#Crime rate variogram plot
+Orginal.variogram <- plot(lag_CrimeRate, variogram_CrimeRate,
+                          type = "o",
+                          col = "dark red",
+                          main = "Variogram of Crime Rate")
+Orginal.variogram
+
+
+#frist 10 ACF and variogram values
+paste("First 10 ACF Values")
+ACF1.calculation[1:10]
+paste("First 10 PACF Values")
+PACF1.Calculation[1:10]
+paste("First 10 variogram Values")
+variogram_CrimeRate[1:10]
+
+```
+
+
+
+## Question 3:
+#(5 points) Is there an indication of nonstationary behavior in the time series? 
+Why or why not?
+
+
+
+## Discussion:
+The time series plot, ACF and variogram all agree that the crime rate is 
+non-stationary time series.There is an apparent decreasing trend.The ACF plot in 
+particular,shows an oscillating trend crossing the significant threshold 
+at the first three lags as well as latter lags.While the variogram shows the increasing,decreasing trend. The Dicke-Fuller test also supports this interpretation 
+having a p-value of 0.5932. This p-value is not statistically significant enough
+to reject the null hypothesis that the time series is non-stationary.
+
+
+
+```{r}
+tsdisplay(CrimeRate.ts)
+
+#Stationarity check :Dicke-Fuller test 
+adf.test(CrimeRate.ts)
+```
+
+
+
+## Question 4:
+(10 points) Calculate and plot the first difference of the time series. Show the 
+first 10 differences.
+
+
+```{r}
+#calculating the first differencing
+CrimeRate.Diff1 <- diff(ts(Final_data[,2],start = 1984, end = 2005,frequency = 1),
+                        differences = 1)
+CrimeRate.Diff1
+
+
+# plot time series of the first difference
+First.Diff <- plot(CrimeRate.Diff1, type = "o",
+                   main = "Time Series Plot of The Differenced Data")
+First.Diff
+
+
+#First 10 differences
+paste("First ten differences")
+head(CrimeRate.Diff1,10)
+
+```
+
+
+## Question 5:
+(10 points) Compute the sample autocorrelation function (ACF) and variogram of 
+the first differences.
+
+
+```{r}
+#Stationarity check:ACF and PACF plots
+ACF.diff1 <- acf(CrimeRate.Diff1, plot = FALSE)
+PACF.diff1 <- pacf(CrimeRate.Diff1, plot = FALSE)
+ACF.Diff1.Plot <- ggAcf(CrimeRate.Diff1,lag.max = 20)+labs(title = "ACF")
+PACF.Diff1.Plot <- ggPacf(CrimeRate.Diff1,lag.max = 20)+labs(title = "PACF")
+
+ACF.Diff1.Plot
+PACF.Diff1.Plot
+
+#Variogram of the first differences
+
+x2 <- CrimeRate.Diff1
+lag_length2 <- 19
+lag_CrimeRate2 <- 1:lag_length2
+z2 <- variogram_func(x2, lag_length2)
+variogram_CrimeRate2 <- z2$vario
+variogram_CrimeRate2
+
+# First difference variogram plot
+first.diff.variogram <- plot(lag_CrimeRate2, variogram_CrimeRate2,
+                             type = "o",
+                             col = "dark red",
+                             main = "Variogram of first difference")
+first.diff.variogram
+
+#frist 10 ACF and variogram values fo the differences time seires
+paste("First 10 ACF values of the differences time series")
+ACF.diff1[1:10]
+paste("First 10 PACF values of the differenced time series")
+PACF.diff1[1:10]
+paste("First 10 variogram Values of differenced time series")
+variogram_CrimeRate2[1:10]
+
+
+#Further stationarity checks
+tsdisplay(CrimeRate.Diff1)
+
+adf.test(CrimeRate.Diff1);
+pp.test(CrimeRate.Diff1); 
+kpss.test(CrimeRate.Diff1)
+```
+
+
+
+
+## Question 6:
+(5 points) What impact has differencing had on the time series?
+
+
+
+## Discussion:
+The differencing was intending to remove the changing levels of the original time
+time series data, so it detrended the time series.The ACF plot immediately lost 
+the oscillation seen in the original time series.My only concern is that there is
+still random fluctuations shown by the first differenced time series plot as well 
+as the variogram plot.This indicates further diferrencing may be required moving
+forward.
+
+
+
+
+## Question 7:
+Develop an appropriate exponential smoothing forecasting procedure for the first-
+differencing data by answering the questions below.
+
+
+
+### Part a:
+(10 points) Assume the first-difference data is a constant process. For R user, 
+use the HoltWinters() function to find the optimum value of 𝜆 to smooth the data.
+For JMP user, specify the 𝜆 given by the software.
+
+
+
+##Discussion
+Holtwinter's method indicates a lambda value of 0.592 as the optimum lambda which
+gives us a sum error squared of 12382.3.
+
+
+
+```{r}
+
+CrimeRate.fit <- HoltWinters(CrimeRate.Diff1, beta=FALSE, gamma=FALSE)
+
+CrimeRate.fit$alpha
+
+
+```
+
+
+### Part b:
+(10 points) Show the fitted values and corresponding SSE by using the 𝜆 obtained
+in part a.
+
+
+##Discussion
+The fitted values are printed down and the sum squared error is 12382.3.
+
+```{r}
+set.seed(34378)
+Holt.Model1 <- HoltWinters(CrimeRate.Diff1, beta=FALSE, gamma=FALSE)
+Holt.Model1$fitted[,2]
+sse <- sum((CrimeRate.Diff1-Holt.Model1$fitted[,2])^2)
+sse
+Holt.Model1$SSE
+
+
+```
+
+
+### Part c:
+(5 points) Plot the fitted values and original values in a same plot.
+
+
+
+## Discussion
+This particular Holtwinter's method does not seem to be doing a great job of 
+fitting. The fitted values seem to be close to the boundary of the confidence 
+interval.It does alright in capturing the general patterns but not so well in 
+fitting with good accuracy.This is because we are applying a data with a trend
+on a model meant for a univariate data without a trend or season.
+
+
+```{r}
+#
+plot(CrimeRate.Diff1, type = "l", 
+     pch = 16, cex = 0.5,col = "blue",
+     xlab = "Time",
+     ylab = "Crime Rate Per 100,000",
+     main = "Crime Rate Observed vs. Holt Winter's Fitted",
+     panel.first=grid())
+lines(Holt.Model1$fitted[,1],type = "l",
+      cex = 0.5,
+      col = "red")
+legend(19,64, legend=c("Original", "Fitted"),
+       col=c("blue", "red"), lty = 1:1, cex = 0.8)
+
+```
+
+
+### Part d:
+(5 points) Assume the first-difference data shows a trend. Calculate the SSE. 
+You can get it from the HoltWinters() function. Then compare the SSE with that 
+of obtained in part b. What can you tell from the comparison?
+
+
+
+## Discussion:
+During the construction of this second HoltWinters model gamma was set to "FALSE"
+because seasonality or cyclical fluctuations was not observed in the the first
+difference time series. However, there was a trend which require Holt-Winters
+exponential smoothing. So the default function optimized the best smoothing parameters as:
+alpha: 0.7354783
+beta : 0.44757
+and sse of 21089.49 which is higher than the sse we obtained by treating the first
+time difference data as a constant process.The sse we obtained from the first 
+model was 12382.3. This fitted model seems to better predict or capture the 
+trend in the time series than the previous model where the time series was assumed
+to be a constant process. Although this model is still needs quite a bit more tuning 
+before it's ready for deployment.
+
+
+
+```{r}
+Holt.Model2 <- HoltWinters(CrimeRate.Diff1,gamma = FALSE)
+Holt.Model2
+Holt.Model2$fitted
+sse <- sum((CrimeRate.Diff1 - Holt.Model2$fitted[,1])^2)
+sse
+Holt.Model2$SSE
+
+plot(CrimeRate.Diff1, type = "b", 
+     pch = 16, cex = 0.5,col = "black",
+     xlab = "Time",
+     ylab = "Crime Rate Per 100,000",
+     main = "Crime Rate Observed vs. Holt Winter's Fitted",
+     panel.first=grid())
+lines(Holt.Model1$fitted[,1],type = "l",
+      cex = 0.5,
+      col = "red")
+lines(Holt.Model2$fitted[,1],type = "l",
+      cex = 0.5,
+      col = "green")
+legend(2000,60, legend=c("Original", "Model1 Fitted","Model2 Fitted"),
+       col=c("black", "red" , "green"), lty = 1:1, cex = 0.8)
+
+
+```
+
+
+
+### Part e:
+(5 points) Suppose the first-difference is a constant process. Give the forecasts
+of the crime rate for years from 2006 to 2010.
+
+
+## Discussion:
+
+The second model with the trend smoothing parameter seems to have larger prediction
+interval and larger coefficients.
+
+
+```{r}
+Holt.Model1.Forecast <- predict(Holt.Model1, n.ahead = 5,
+                                prediction.interval = TRUE)
+Holt.Model2.Forecast <- predict(Holt.Model2, n.ahead = 5,
+                                prediction.interval = TRUE)
+Holt.Model1.Forecast
+Holt.Model2.Forecast
+
+
+```
+
+
+## Question 8:
+
+### Part a:
+a. (10 points) Develop an appropriate ARIMA model and a procedure for forecasting 
+for the crime rate data. Specify the model and estimated parameters in the model. 
+Hint: You can use the auto.arima() and forecast() functions to answer this question
+
+
+
+##Discussion:
+
+The specified model is an arima(1,2,0) which can be written as arima(1,0,0) after 
+2nd differencing.This follows logic because there was still a trend left in the 
+first differenced time series. The 1 in the p parameter suggests that the autoregressive component is heavy handed in this model.The AR(1) coefficient is -0.4671  with
+$mu$ of -1.6561.The AIC, AICc and BIC are respectively,AIC=190.48   AICc=191.98  
+BIC=193.46.The ACF plot indicates there is no significant autocorrelation in the lags. 
+The residuals are normally distributed with some skewness.The AR(1) model's coefficient
+can be used for forecasting in the following manner:
+$$y_{t} = 1.6561 - 0.4533*y_{t-1}+\epsilon_{t}$$
+$\phi = -0.4671 $
+$$\hat{Y}(1) = \mu + \phi(Y_t-\mu)$$
+
+(ψ0+ψ1B+ψ2B2+ψ3B3...)(1−φ\1B) = 1
+(ψ0−ψ0φ1B+ψ1B−ψ1φ1B2+ψ2B2−ψ2φ1B3−+ψ3B3−ψ3φ1B4...) = 1
+ψ0+B(ψ1−ψ0φ1) +B2(ψ2−ψ1φ1) +B3(ψ3−ψ2φ1) = 1
+
+
+```{r}
+set.seed(54842)
+auto.arima(Final_data[,2])
+
+
+#ARIMA1
+arima.120 <- arima(CrimeRate.ts, order=c(1,2,0))
+arima.120
+fitted<-as.vector(fitted(arima.120))
+fitted
+#Model Adequacy
+checkresiduals(arima.120)
+
+#4-in-1 plot of the residuals
+par(mfrow = c(2,2),oma = c(0,0,0,0))
+qqnorm(arima.120$residuals,
+       datax = TRUE,
+       pch = 16,
+       xlab = 'Residual',
+       main = '')
+qqline(arima.120$residuals,
+       datax = TRUE)
+plot(fitted(arima.120),
+     arima.120$residuals,
+     pch = 16,
+     xlab = 'Fitted Value',
+     ylab = 'Residual')
+abline(h = 0)
+hist(arima.120$residuals,
+     col = "gray",
+     xlab = 'Residual',
+     main = '')
+plot(arima.120$residuals,
+     type = "l",
+     xlab = 'Observation Order',
+     ylab = 'Residual')
+points(arima.120$residuals,
+       pch = 16,
+       cex = .5)
+abline(h = 0)
+
+
+#forecast
+forecast(arima.120,5)
+```
+
+
+### Part b:
+(5 points) Compare the AIC obtained from part a with that of obtained from ARIMA(0,1,0)
+model. Which model has a smaller AIC? What can you tell by this comparison?
+
+
+
+##Discussion:
+The ARIMA(1,2,0) has a lower AIC of 188.6674, compared to ARIMA(0,1,0)'s AIC of 205.9326.
+This makes sense because the arima(0,1,0) is a first order differencing. We know
+from our earlier analysis that this time series data requires a second order
+differencing. Hence, ARIMA(1,2,0) model is more adequate in properly characterizing 
+the behavior of the time series data or the residual trend after taking the 
+first differencing. 
+
+
+```{r}
+#part a AIC
+AIC(arima.120)
+
+#Arima(0,1,0) AIC
+ARIMA.2 <- Arima((Final_data[,2]), order = c(0,1,0))
+AIC(ARIMA.2)
+
+```
+
+
+### Part C:
+(5 points) Show the 1- to 5- step ahead forecasts and corresponding 95% prediction 
+intervals for the crime rate. Show only the results/outputs. Calculation process or 
+formula are not required.
+
+
+
+##Discussion:
+We estimate the prediction error variance using the 
+forecasting equation and plug it into the standard prediction interval equation.
+$$ \hat{y}_{T+\tau}(T)\pm (1.96)*\sigma(\tau) $$
+Regarding the forecasted values the lower bound of the prediction interval
+seems to be getting smaller the farther ahead we predict into the future.
+This is valid since error rate increases with with long-term forecasting.
+
+```{r}
+
+step.ahead.forecast <- as.data.frame(forecast(arima.120,5))
+step.ahead.forecast
+
+
+#Calculating 95% PI
+paste("Lower bound 95% prediction inverval")
+data.frame(step.ahead.forecast$`Lo 95`)
+
+
+paste("Lower bound 95% prediction inverval")
+data.frame(step.ahead.forecast$`Hi 95`)
+
+```
+
+
+
+
+
+
+
+
